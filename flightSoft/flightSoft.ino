@@ -28,21 +28,15 @@
 //booleani di appoggio
 volatile bool readyGyro = 0;
 volatile bool readyAcc = 0;
-bool gyroRead = 0;
-bool accRead = 0;
 
 //variabili per convertire i valori letti dal sensore in SI, il primo valore delle espressioni dipende dalla scala vedi il datasheet
 const float dso32BitToRadSec =  70 * (PI/180) / 1000; //valido per 2000dps
 const float dso32BitToMss = 0.976 * 9.80665 /1000; //valido per 32g, pare che g a roma sia 9.80353 o 9.80322
-const float dso32BitToC = 1/256; //da decidere ci serve la temperatura?
+const float dso32BitToC = 1/256;
 
-float accX; //in m/ss
-float accY; //in m/ss
-float accZ; //in m/ss
-float gyroX; //in rad/s
-float gyroY; //in rad/s
-float gyroZ; //in rad/s
-float temp; //unità misura da decidere
+float accX, accY, accZ; //in m/ss
+float gyroX, gyroY, gyroZ; //in rad/s
+float temp; //in gradi centigradi
 int16_t rawAccX, rawAccY, rawAccZ, rawGyroX, rawGyroY, rawGyroZ, rawTemp;
 
 //variabili per il timing
@@ -65,45 +59,9 @@ void setup() {
   //disattivo gli interrupt per evitare problemi durante l'inizializzazione
   noInterrupts();
  
-  //inizializzo SPI e faccio sapere che verrà usata all'interno degli interrupt
   SPI.begin();
-  //SPI.usingInterrupt(digitalPinToInterrupt(32));
-  //SPI.usingInterrupt(digitalPinToInterrupt(31));
 
-  SPI.beginTransaction(SPISettings(DSO32_SPI_SPEED, MSBFIRST, SPI_MODE3));
-  digitalWrite(DSO32_CS, LOW);
-  uint8_t lallero[3] = {DSO32_REG_INT1_CTRL | 0b10000000, 0x02, 0x01};
-  SPI.transfer(lallero, 3);
-  digitalWrite(DSO32_CS, HIGH);
-  SPI.endTransaction();
-  Serial.print("valori interrupt: ");
-  Serial.print(lallero[1], BIN);
-  Serial.print("   ");
-  Serial.println(lallero[2], BIN);
-  
-  Serial.println("setto imu");
-  
   ImuSetup();
-
-  SPI.beginTransaction(SPISettings(DSO32_SPI_SPEED, MSBFIRST, SPI_MODE3));
-  digitalWrite(DSO32_CS, LOW);
-  uint8_t laller[3] = {DSO32_REG_INT1_CTRL | 0b10000000, 0x02, 0x01};
-  SPI.transfer(laller, 3);
-  digitalWrite(DSO32_CS, HIGH);
-  SPI.endTransaction();
-  Serial.print("valori interrupt: ");
-  Serial.print(laller[1], BIN);
-  Serial.print("   ");
-  Serial.println(laller[2], BIN);
-  
-  SPI.beginTransaction(SPISettings(DSO32_SPI_SPEED, MSBFIRST, SPI_MODE3));
-  digitalWrite(DSO32_CS, LOW);
-  byte buffero[2] = {DSO32_REG_WHO_AM_I | 0b10000000};
-  SPI.transfer(buffero, 2);
-  digitalWrite(DSO32_CS, HIGH);
-  SPI.endTransaction();
-  Serial.print("whoAmI: ");
-  Serial.println(buffero[1], BIN);
 
   //riattivo gli interrupt
   interrupts();
@@ -116,22 +74,16 @@ void loop() {
   if(readyGyro){
     readyGyro = 0;
     ImuGetGyro();
-    gyroRead = 1;
   }
   if(readyAcc){
     readyAcc = 0;
     ImuGetAcc();
-    accRead = 1;
   }
 
   if(millis() - prevMillis >= 500){
 
-    //logga roba
-    //ImuGetAcc();
-    Serial.println(String(accX, 6) + " " + String(accY, 6) + " " + String(accZ, 6));
-    //Serial.print(gyroRead);
-    //Serial.print("  ");
-    //Serial.println(accRead);
+    //fai cose
+    
   }
 }
 
@@ -224,10 +176,8 @@ void ImuGetTemp(){
 
 void IntG(){
   readyGyro = 1;
-  //gyroRead = 1;
 }
 
 void IntA(){
   readyAcc = 1;
-  //gyroRead = 1;
 }
