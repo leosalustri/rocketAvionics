@@ -4,8 +4,8 @@
 #define DSO32_SCK 13
 #define DSO32_MISO 12
 #define DSO32_MOSI 11
-#define DSO32_INT_GYRO 31
-#define DSO32_INT_ACC 32
+#define DSO32_INT_GYRO 40
+#define DSO32_INT_ACC 41
 #define DSO32_SPI_SPEED 1000000
 
 #define DSO32_REG_INT1_CTRL 0x0D
@@ -54,8 +54,8 @@ void setup() {
   pinMode(DSO32_INT_ACC, INPUT);
 
   //attachInterrupt
-  attachInterrupt(digitalPinToInterrupt(32),IntA,RISING);
-  attachInterrupt(digitalPinToInterrupt(31),IntG,RISING);
+  attachInterrupt(digitalPinToInterrupt(DSO32_INT_ACC),IntA,RISING);
+  attachInterrupt(digitalPinToInterrupt(DSO32_INT_GYRO),IntG,RISING);
   //disattivo gli interrupt per evitare problemi durante l'inizializzazione
   noInterrupts();
  
