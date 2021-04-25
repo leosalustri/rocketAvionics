@@ -74,9 +74,9 @@ void setup() {
   
   BaroSetup();
   
-  SPI.beginTransaction(SPISettings(BMP388_SPI_SPEED, MSBFIRST, SPI_MODE3));
+  SPI.beginTransaction(SPISettings(BMP388_SPI_SPEED, MSBFIRST, SPI_MODE0));
   digitalWrite(BMP388_CS, LOW);
-  byte buffero[2] = {BMP388_REG_WHO_AM_I | 0b10000000};
+  byte buffero[2] = {BMP388_REG_WHO_AM_I | 0b10000000, 0b1000};
   SPI.transfer(buffero, 2);
   digitalWrite(BMP388_CS, HIGH);
   SPI.endTransaction();
@@ -101,7 +101,10 @@ void loop() {
   if(millis() - prevMillis >= 500){
 
     //logga roba
-    Serial.println(String(pressure, 4) + " " + String(temp, 4));
+    BaroGetPress();
+    BaroGetTemp();
+    //Serial.println(String(pressure, 4) + " " + String(temp, 4));
+    Serial.println(String(rawPressure) + " " + String(rawTemp));
     //Serial.println(baroRead);
   }
 }
@@ -110,10 +113,10 @@ void loop() {
 //imposta i registri in base ai valori desiderati
 void BaroSetup(){
   
-  SPI.beginTransaction(SPISettings(BMP388_SPI_SPEED, MSBFIRST, SPI_MODE3));
+  SPI.beginTransaction(SPISettings(BMP388_SPI_SPEED, MSBFIRST, SPI_MODE0));
   digitalWrite(BMP388_CS, LOW);
-  //pin interrupt sensore
-  byte settingsBuff[10] = {BMP388_REG_INT_CTRL, 0x42, BMP388_REG_PWR_CTRL, 0x33,
+  
+  byte settingsBuff[10] = {BMP388_REG_INT_CTRL, 0b01000010, BMP388_REG_PWR_CTRL, 0b00110011,
                             BMP388_REG_OSR, 0x0A, BMP388_REG_ODR, 0x01, BMP388_REG_CONFIG, 0x02,};
   SPI.transfer(settingsBuff, 10);
   digitalWrite(BMP388_CS, HIGH);
@@ -126,7 +129,7 @@ void BaroSetup(){
 void BaroGetPress(){
 
   byte buff[3];
-  SPI.beginTransaction(SPISettings(BMP388_SPI_SPEED, MSBFIRST, SPI_MODE3));
+  SPI.beginTransaction(SPISettings(BMP388_SPI_SPEED, MSBFIRST, SPI_MODE0));
   digitalWrite(BMP388_CS, LOW);
   
   SPI.transfer(BMP388_REG_OUTP | 0b10000000);
@@ -142,7 +145,7 @@ void BaroGetPress(){
 void BaroGetTemp(){
 
   byte buff[3];
-  SPI.beginTransaction(SPISettings(BMP388_SPI_SPEED, MSBFIRST, SPI_MODE3));
+  SPI.beginTransaction(SPISettings(BMP388_SPI_SPEED, MSBFIRST, SPI_MODE0));
   digitalWrite(BMP388_CS, LOW);
   
   SPI.transfer(BMP388_REG_OUTT | 0b10000000);
@@ -162,7 +165,7 @@ void IntB(){
 
 void BaroGetCalibParam(){
 
-  SPI.beginTransaction(SPISettings(BMP388_SPI_SPEED, MSBFIRST, SPI_MODE3));
+  SPI.beginTransaction(SPISettings(BMP388_SPI_SPEED, MSBFIRST, SPI_MODE0));
   digitalWrite(BMP388_CS, LOW);
   byte buff[21];
   SPI.transfer(0x31 | 0b10000000);
