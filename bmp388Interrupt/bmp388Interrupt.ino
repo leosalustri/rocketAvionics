@@ -22,9 +22,10 @@
 //booleani di appoggio
 volatile bool readyBaro = 0;
 bool baroRead = 0;
+volatile int baroCount = 0;
 
 float pressure; //in Pa
-float temp; //unità misura da decidere
+float temp; //in C
 uint32_t rawPressure, rawTemp;
 
 //variabili per il timing
@@ -61,6 +62,8 @@ void setup() {
 
   pinMode(BMP388_CS, OUTPUT);
   pinMode(BMP388_INT, INPUT);
+  pinMode(10,OUTPUT);
+  digitalWrite(10, HIGH);
 
   //attachInterrupt
   attachInterrupt(digitalPinToInterrupt(BMP388_INT),IntB,RISING);
@@ -70,18 +73,36 @@ void setup() {
   //inizializzo SPI e faccio sapere che verrà usata all'interno degli interrupt
   SPI.begin();
 
+  SPI.beginTransaction(SPISettings(BMP388_SPI_SPEED, MSBFIRST, SPI_MODE3));
+  digitalWrite(BMP388_CS, LOW);
+  byte buffe[3] = {BMP388_REG_WHO_AM_I | 0b10000000, 0b1000};
+  SPI.transfer(buffe, 3);
+  digitalWrite(BMP388_CS, HIGH);
+  SPI.endTransaction();
+  Serial.print("whoAmI: ");
+  Serial.println(buffe[2], HEX);
+
+  SPI.beginTransaction(SPISettings(BMP388_SPI_SPEED, MSBFIRST, SPI_MODE3));
+  digitalWrite(BMP388_CS, LOW);
+  byte buff[3] = {BMP388_REG_WHO_AM_I | 0b10000000, 0b1000};
+  SPI.transfer(buff, 3);
+  digitalWrite(BMP388_CS, HIGH);
+  SPI.endTransaction();
+  Serial.print("whoAmI: ");
+  Serial.println(buff[2], HEX);
+
   Serial.println("setto imu");
   
   BaroSetup();
   
   SPI.beginTransaction(SPISettings(BMP388_SPI_SPEED, MSBFIRST, SPI_MODE3));
   digitalWrite(BMP388_CS, LOW);
-  byte buffero[2] = {BMP388_REG_WHO_AM_I | 0b10000000, 0b1000};
-  SPI.transfer(buffero, 2);
+  byte buffero[3] = {BMP388_REG_WHO_AM_I | 0b10000000, 0b1000};
+  SPI.transfer(buffero, 3);
   digitalWrite(BMP388_CS, HIGH);
   SPI.endTransaction();
   Serial.print("whoAmI: ");
-  Serial.println(buffero[1], BIN);
+  Serial.println(buffero[2], HEX);
 
   //riattivo gli interrupt
   interrupts();
@@ -100,12 +121,14 @@ void loop() {
 
   if(millis() - prevMillis >= 500){
 
+    prevMillis = millis();
     //logga roba
     BaroGetPress();
     BaroGetTemp();
     //Serial.println(String(pressure, 4) + " " + String(temp, 4));
-    Serial.println(String(rawPressure) + " " + String(rawTemp));
-    //Serial.println(baroRead);
+    //Serial.println(String(rawPressure) + " " + String(rawTemp));
+    Serial.println(baroCount);
+    baroCount = 0;
   }
 }
 
@@ -117,7 +140,7 @@ void BaroSetup(){
   digitalWrite(BMP388_CS, LOW);
   
   byte settingsBuff[10] = {BMP388_REG_INT_CTRL, 0b01000010, BMP388_REG_PWR_CTRL, 0b00110011,
-                            BMP388_REG_OSR, 0x0A, BMP388_REG_ODR, 0x01, BMP388_REG_CONFIG, 0x02,};
+                            BMP388_REG_OSR, 0b00000011, BMP388_REG_ODR, 0x02, BMP388_REG_CONFIG, 0x02,};
   SPI.transfer(settingsBuff, 10);
   digitalWrite(BMP388_CS, HIGH);
   SPI.endTransaction();
@@ -128,32 +151,32 @@ void BaroSetup(){
 
 void BaroGetPress(){
 
-  byte buff[3];
+  byte buff[4];
   SPI.beginTransaction(SPISettings(BMP388_SPI_SPEED, MSBFIRST, SPI_MODE3));
   digitalWrite(BMP388_CS, LOW);
   
   SPI.transfer(BMP388_REG_OUTP | 0b10000000);
-  SPI.transfer(buff,3);
+  SPI.transfer(buff,4);
 
   digitalWrite(BMP388_CS, HIGH);
   SPI.endTransaction();
-  rawPressure = buff[2] <<16 | (buff[1] << 8 | buff[0]);
+  rawPressure = buff[3] <<16 | (buff[2] << 8 | buff[1]);
   pressure = BMP388_compensate_pressure(rawPressure, &calData);
   
 }
 
 void BaroGetTemp(){
 
-  byte buff[3];
+  byte buff[4];
   SPI.beginTransaction(SPISettings(BMP388_SPI_SPEED, MSBFIRST, SPI_MODE3));
   digitalWrite(BMP388_CS, LOW);
   
   SPI.transfer(BMP388_REG_OUTT | 0b10000000);
-  SPI.transfer(buff,3);
+  SPI.transfer(buff,4);
 
   digitalWrite(BMP388_CS, HIGH);
   SPI.endTransaction();
-  rawTemp = buff[2] <<16 | (buff[1] << 8 | buff[0]);
+  rawTemp = buff[3] <<16 | (buff[2] << 8 | buff[1]);
   temp = BMP388_compensate_temperature(rawTemp, &calData);
   
 }
@@ -161,6 +184,7 @@ void BaroGetTemp(){
 void IntB(){
   readyBaro = 1;
   //baroRead = 1;
+  baroCount++;
 }
 
 void BaroGetCalibParam(){
@@ -169,6 +193,7 @@ void BaroGetCalibParam(){
   digitalWrite(BMP388_CS, LOW);
   byte buff[21];
   SPI.transfer(0x31 | 0b10000000);
+  SPI.transfer(0x00);
   SPI.transfer(buff, 21);
   digitalWrite(BMP388_CS, HIGH);
   SPI.endTransaction();
