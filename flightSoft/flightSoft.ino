@@ -60,7 +60,6 @@ float seaLevelPressure = 101325; // in Pa
 unsigned long prevMillis = 0;
 
 struct BMP388_calib_data{
-
     double par_t1;
     double par_t2;
     double par_t3;
@@ -76,11 +75,9 @@ struct BMP388_calib_data{
     double par_p10;
     double par_p11;
     double t_lin;
-  
 } calData;
 
 void setup() {
-
   Serial.begin(512000);
   while(!Serial)
     delay(5);
@@ -110,7 +107,6 @@ void setup() {
 }
 
 void loop() {
-  
   if(readyGyro){
     readyGyro = 0;
     ImuGetGyro();
