@@ -62,8 +62,6 @@ void setup() {
 
   pinMode(BMP388_CS, OUTPUT);
   pinMode(BMP388_INT, INPUT);
-  pinMode(10,OUTPUT);
-  digitalWrite(10, HIGH);
 
   //attachInterrupt
   attachInterrupt(digitalPinToInterrupt(BMP388_INT),IntB,RISING);
@@ -73,36 +71,36 @@ void setup() {
   //inizializzo SPI e faccio sapere che verrà usata all'interno degli interrupt
   SPI.begin();
 
-  SPI.beginTransaction(SPISettings(BMP388_SPI_SPEED, MSBFIRST, SPI_MODE3));
-  digitalWrite(BMP388_CS, LOW);
-  byte buffe[3] = {BMP388_REG_WHO_AM_I | 0b10000000, 0b1000};
-  SPI.transfer(buffe, 3);
-  digitalWrite(BMP388_CS, HIGH);
-  SPI.endTransaction();
-  Serial.print("whoAmI: ");
-  Serial.println(buffe[2], HEX);
+//  SPI.beginTransaction(SPISettings(BMP388_SPI_SPEED, MSBFIRST, SPI_MODE3));
+//  digitalWrite(BMP388_CS, LOW);
+//  byte buffe[3] = {BMP388_REG_WHO_AM_I | 0b10000000, 0b1000};
+//  SPI.transfer(buffe, 3);
+//  digitalWrite(BMP388_CS, HIGH);
+//  SPI.endTransaction();
+//  Serial.print("whoAmI: ");
+//  Serial.println(buffe[2], HEX);
 
-  SPI.beginTransaction(SPISettings(BMP388_SPI_SPEED, MSBFIRST, SPI_MODE3));
-  digitalWrite(BMP388_CS, LOW);
-  byte buff[3] = {BMP388_REG_WHO_AM_I | 0b10000000, 0b1000};
-  SPI.transfer(buff, 3);
-  digitalWrite(BMP388_CS, HIGH);
-  SPI.endTransaction();
-  Serial.print("whoAmI: ");
-  Serial.println(buff[2], HEX);
+//  SPI.beginTransaction(SPISettings(BMP388_SPI_SPEED, MSBFIRST, SPI_MODE3));
+//  digitalWrite(BMP388_CS, LOW);
+//  byte buff[3] = {BMP388_REG_WHO_AM_I | 0b10000000, 0b1000};
+//  SPI.transfer(buff, 3);
+//  digitalWrite(BMP388_CS, HIGH);
+//  SPI.endTransaction();
+//  Serial.print("whoAmI: ");
+//  Serial.println(buff[2], HEX);
 
   Serial.println("setto imu");
   
   BaroSetup();
   
-  SPI.beginTransaction(SPISettings(BMP388_SPI_SPEED, MSBFIRST, SPI_MODE3));
-  digitalWrite(BMP388_CS, LOW);
-  byte buffero[3] = {BMP388_REG_WHO_AM_I | 0b10000000, 0b1000};
-  SPI.transfer(buffero, 3);
-  digitalWrite(BMP388_CS, HIGH);
-  SPI.endTransaction();
-  Serial.print("whoAmI: ");
-  Serial.println(buffero[2], HEX);
+//  SPI.beginTransaction(SPISettings(BMP388_SPI_SPEED, MSBFIRST, SPI_MODE3));
+//  digitalWrite(BMP388_CS, LOW);
+//  byte buffero[3] = {BMP388_REG_WHO_AM_I | 0b10000000, 0b1000};
+//  SPI.transfer(buffero, 3);
+//  digitalWrite(BMP388_CS, HIGH);
+//  SPI.endTransaction();
+//  Serial.print("whoAmI: ");
+//  Serial.println(buffero[2], HEX);
 
   //riattivo gli interrupt
   interrupts();
@@ -123,9 +121,7 @@ void loop() {
 
     prevMillis = millis();
     //logga roba
-    BaroGetPress();
-    BaroGetTemp();
-    //Serial.println(String(pressure, 4) + " " + String(temp, 4));
+    Serial.println(String(pressure, 4) + " " + String(temp, 4));
     //Serial.println(String(rawPressure) + " " + String(rawTemp));
     Serial.println(baroCount);
     baroCount = 0;
