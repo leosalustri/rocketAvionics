@@ -1,4 +1,11 @@
 #include <SPI.h>
+#include "SdFat.h"
+#include "RingBuf.h"
+
+#define SD_CONFIG  SdioConfig(FIFO_SDIO)  // Use Teensy SDIO
+#define LOG_FILE_SIZE 10*25000*600  // Size to log 10 byte lines at 25 kHz for more than ten minutes.
+#define RING_BUF_CAPACITY 400*512 // Space to hold more than 800 ms of data for 10 byte lines at 25 ksps.
+#define LOG_FILENAME "SdioLogger.csv"
 
 #define DSO32_CS 10
 #define BMP388_CS 19
@@ -36,6 +43,10 @@
 #define BMP388_REG_OSR 0x1C  //00001010  oversampling press 2x  temp 2x
 #define BMP388_REG_ODR 0x1D  //00000001  100Hz
 #define BMP388_REG_CONFIG 0x1F  //00000010 iir filter coeff 1
+
+SdFs sd;
+FsFile file;
+RingBuf<FsFile, RING_BUF_CAPACITY> rb;  // RingBuf for File type FsFile.
 
 //booleani di appoggio
 volatile bool readyGyro = 0;
@@ -94,6 +105,11 @@ void setup() {
   attachInterrupt(digitalPinToInterrupt(BMP388_INT),IntB,RISING);
   //disattivo gli interrupt per evitare problemi durante l'inizializzazione
   noInterrupts();
+
+  sd.begin(SD_CONFIG);
+  file.open(LOG_FILENAME, O_RDWR | O_CREAT | O_TRUNC);
+  file.preAllocate(LOG_FILE_SIZE);
+  rb.begin(&file);
  
   SPI.begin();
 
@@ -320,4 +336,25 @@ static float BMP388_compensate_pressure(uint32_t uncomp_press, struct BMP388_cal
 
 void IntB(){
   readyBaro = 1;
+}
+
+/***********************************************************************************************
+ * FUNZIONI PER IL LOGGING SU SD
+ */
+
+bool logga(){
+  size_t n = rb.bytesUsed();
+  if ((n + file.curPosition()) > (LOG_FILE_SIZE - 20)) {
+    Serial.println("File full - quiting.");
+   }
+  if (n >= 512 && !file.isBusy()) {
+    // Not busy only allows one sector before possible busy wait.
+    // Write one sector from RingBuf to file.
+    if (512 != rb.writeOut(512)) {
+      Serial.println("writeOut failed");
+    }
+  }
+  rb.print();
+  rb.write();
+  rb.println();
 }
