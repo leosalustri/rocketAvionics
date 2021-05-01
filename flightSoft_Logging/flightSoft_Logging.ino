@@ -5,7 +5,7 @@
 #define SD_CONFIG  SdioConfig(FIFO_SDIO)  // Use Teensy SDIO
 #define LOG_FILE_SIZE 10*25000*600  // Size to log 10 byte lines at 25 kHz for more than ten minutes.
 #define RING_BUF_CAPACITY 400*512 // Space to hold more than 800 ms of data for 10 byte lines at 25 ksps.
-#define LOG_FILENAME "SdioLogger.csv"
+#define LOG_FILENAME "AccelerometerLog.csv"
 
 #define DSO32_CS 10
 #define BMP388_CS 19
@@ -69,6 +69,10 @@ float seaLevelPressure = 101325; // in Pa
 //variabili per il timing
 
 unsigned long prevMillis = 0;
+bool endLog = 0;
+bool logging = 0;
+bool gyroReadNotLogged = 0;
+bool accReadNotLogged = 0;
 
 struct BMP388_calib_data{
     double par_t1;
@@ -119,6 +123,8 @@ void setup() {
   //riattivo gli interrupt
   interrupts();
 
+  
+
   prevMillis = millis();
 }
 
@@ -126,21 +132,35 @@ void loop() {
   if(readyGyro){
     readyGyro = 0;
     ImuGetGyro();
+    gyroReadNotLogged = 1;
   }
   if(readyAcc){
     readyAcc = 0;
     ImuGetAcc();
+    accReadNotLogged = 1;
   }
   if(readyBaro){
     readyBaro = 0;
     BaroGetPress();
     BaroGetTemp();
   }
+  if(gyroReadNotLogged && accReadNotLogged){
+    gyroReadNotLogged = 0;
+    accReadNotLogged = 0;
+    logga();
+  }
 
   if(millis() - prevMillis >= 500){
     prevMillis = millis();
     //fai cose
     
+  }
+  
+  if(millis() > 30000){
+    logging = 0;
+  }
+  else if (millis() > 3000){
+    logging = 1;
   }
 }
 
@@ -342,19 +362,26 @@ void IntB(){
  * FUNZIONI PER IL LOGGING SU SD
  */
 
-bool logga(){
+void logga(){
   size_t n = rb.bytesUsed();
-  if ((n + file.curPosition()) > (LOG_FILE_SIZE - 20)) {
-    Serial.println("File full - quiting.");
+  if ((n + file.curPosition()) > (LOG_FILE_SIZE - 20) || endLog) { //sostituire a 20 valore sensato
+    //Serial.println("File full - quiting.");
+    rb.print("fineEEE");
+    rb.sync();
+    file.truncate();
+    file.rewind();
+    file.close();
    }
+  rb.print(micros());
+  rb.write(',');
+  rb.print(accX);
+  rb.write(',');
+  rb.print(accY);
+  rb.write(',');
+  rb.println(accZ);
   if (n >= 512 && !file.isBusy()) {
     // Not busy only allows one sector before possible busy wait.
     // Write one sector from RingBuf to file.
-    if (512 != rb.writeOut(512)) {
-      Serial.println("writeOut failed");
-    }
+    rb.writeOut(512);
   }
-  rb.print();
-  rb.write();
-  rb.println();
 }
