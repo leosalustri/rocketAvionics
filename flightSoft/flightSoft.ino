@@ -8,8 +8,8 @@
 #define DSO32_INT_GYRO 40
 #define DSO32_INT_ACC 41
 #define BMP388_INT 20
-#define DSO32_SPI_SPEED 1000000
-#define BMP388_SPI_SPEED 1000000
+#define DSO32_SPI_SPEED 10000000
+#define BMP388_SPI_SPEED 10000000
 
 #define DSO32_REG_INT1_CTRL 0x0D
 #define DSO32_REG_INT2_CTRL 0x0E
@@ -87,6 +87,8 @@ void setup() {
   pinMode(DSO32_INT_ACC, INPUT);
   pinMode(BMP388_CS, OUTPUT);
   pinMode(BMP388_INT, INPUT);
+  digitalWrite(DSO32_CS, HIGH);
+  digitalWrite(BMP388_CS, HIGH);
 
   //attachInterrupt
   attachInterrupt(digitalPinToInterrupt(DSO32_INT_ACC),IntA,RISING);
@@ -98,6 +100,18 @@ void setup() {
   SPI.begin();
 
   ImuSetup();
+  
+  SPI.beginTransaction(SPISettings(DSO32_SPI_SPEED, MSBFIRST, SPI_MODE3));
+  digitalWrite(DSO32_CS, LOW);
+  uint8_t laller[3] = {DSO32_REG_INT1_CTRL | 0b10000000, 0xA2, 0xA1};
+  SPI.transfer(laller, 3);
+  digitalWrite(DSO32_CS, HIGH);
+  SPI.endTransaction();
+  Serial.print("valori interrupt: ");
+  Serial.print(laller[1], BIN);
+  Serial.print("   ");
+  Serial.println(laller[2], BIN);
+  
   BaroSetup();
 
   //riattivo gli interrupt
@@ -124,7 +138,8 @@ void loop() {
   if(millis() - prevMillis >= 500){
     prevMillis = millis();
     //fai cose
-    
+    //Serial.println(String(accX, 6) + " " + String(accY, 6) + " " + String(accZ, 6) + " " + String(temp, 2) + " " + String(pressure, 2));
+    Serial.println(String(rawAccX) + " " + String(rawAccY) + " " + String(rawAccZ) + " " + String(temp, 2) + " " + String(pressure, 2));
   }
 }
 
@@ -198,10 +213,12 @@ void ImuGetAcc(){
 
 void IntG(){
   readyGyro = 1;
+  Serial.println("G");
 }
 
 void IntA(){
   readyAcc = 1;
+  Serial.println("A");
 }
 
 /***********************************************************************************************

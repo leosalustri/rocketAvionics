@@ -108,20 +108,50 @@ void setup() {
   attachInterrupt(digitalPinToInterrupt(DSO32_INT_GYRO),IntG,RISING);
   attachInterrupt(digitalPinToInterrupt(BMP388_INT),IntB,RISING);
   //disattivo gli interrupt per evitare problemi durante l'inizializzazione
-  noInterrupts();
-
+  
+/*
   sd.begin(SD_CONFIG);
   file.open(LOG_FILENAME, O_RDWR | O_CREAT | O_TRUNC);
   file.preAllocate(LOG_FILE_SIZE);
   rb.begin(&file);
- 
+ */
+ // Initialize the SD.
+  if (!sd.begin(SD_CONFIG)) {
+    Serial.println("beccato");
+    sd.initErrorHalt(&Serial);
+  }
+  // Open or create file - truncate existing file.
+  if (!file.open(LOG_FILENAME, O_RDWR | O_CREAT | O_TRUNC)) {
+    Serial.println("open failed\n");
+    return;
+  }
+  // File must be pre-allocated to avoid huge
+  // delays searching for free clusters.
+  if (!file.preAllocate(LOG_FILE_SIZE)) {
+     Serial.println("preAllocate failed\n");
+     file.close();
+     return;
+  }
+  // initialize the RingBuf.
+  rb.begin(&file);
+  //noInterrupts();
   SPI.begin();
 
   ImuSetup();
   BaroSetup();
 
+  SPI.beginTransaction(SPISettings(DSO32_SPI_SPEED, MSBFIRST, SPI_MODE3));
+  digitalWrite(DSO32_CS, LOW);
+  uint8_t laller[3] = {DSO32_REG_INT1_CTRL | 0b10000000, 0x02, 0x01};
+  SPI.transfer(laller, 3);
+  digitalWrite(DSO32_CS, HIGH);
+  SPI.endTransaction();
+  Serial.print("valori interrupt: ");
+  Serial.print(laller[1], BIN);
+  Serial.print("   ");
+  Serial.println(laller[2], BIN);
   //riattivo gli interrupt
-  interrupts();
+  //interrupts();
 
   
 
@@ -144,20 +174,23 @@ void loop() {
     BaroGetPress();
     BaroGetTemp();
   }
-  if(gyroReadNotLogged && accReadNotLogged){
-    gyroReadNotLogged = 0;
-    accReadNotLogged = 0;
-    logga();
-  }
+  logga();
 
   if(millis() - prevMillis >= 500){
     prevMillis = millis();
     //fai cose
-    
+    if(logging){
+      Serial.println("sto loggando");
+      Serial.println(accZ);
+    }
+    else{
+      Serial.println("ho finito");
+    }
   }
   
   if(millis() > 30000){
     logging = 0;
+    endLog = 1;
   }
   else if (millis() > 3000){
     logging = 1;
@@ -194,6 +227,7 @@ void ImuSetup(){
   SPI.transfer(dRBuff, 2);
   digitalWrite(DSO32_CS, HIGH);
   SPI.endTransaction();
+  //Serial.println("imu settata");
 }
 
 void ImuGetGyro(){
@@ -234,10 +268,12 @@ void ImuGetAcc(){
 
 void IntG(){
   readyGyro = 1;
+  Serial.println("G");
 }
 
 void IntA(){
   readyAcc = 1;
+  Serial.println("A");
 }
 
 /***********************************************************************************************
@@ -372,13 +408,18 @@ void logga(){
     file.rewind();
     file.close();
    }
-  rb.print(micros());
-  rb.write(',');
-  rb.print(accX);
-  rb.write(',');
-  rb.print(accY);
-  rb.write(',');
-  rb.println(accZ);
+  if(gyroReadNotLogged && accReadNotLogged && logging){
+    gyroReadNotLogged = 0;
+    accReadNotLogged = 0;
+    rb.print(micros());
+    rb.write(',');
+    rb.print(accX);
+    rb.write(',');
+    rb.print(accY);
+    rb.write(',');
+    rb.println(accZ);
+  }
+  
   if (n >= 512 && !file.isBusy()) {
     // Not busy only allows one sector before possible busy wait.
     // Write one sector from RingBuf to file.
