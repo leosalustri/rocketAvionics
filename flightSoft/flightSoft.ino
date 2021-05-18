@@ -92,17 +92,6 @@ void setup() {
  
   SPI.begin();
   
-  SPI.beginTransaction(SPISettings(DSO32_SPI_SPEED, MSBFIRST, SPI_MODE3));
-  digitalWrite(DSO32_CS, LOW);
-  uint8_t lallero[3] = {DSO32_REG_INT1_CTRL | 0b10000000, 0xA2, 0xA1};
-  SPI.transfer(lallero, 3);
-  digitalWrite(DSO32_CS, HIGH);
-  SPI.endTransaction();
-  Serial.print("valori interrupt: ");
-  Serial.print(lallero[1], BIN);
-  Serial.print("   ");
-  Serial.println(lallero[2], BIN);
-  
   ImuSetup();
   
   SPI.beginTransaction(SPISettings(DSO32_SPI_SPEED, MSBFIRST, SPI_MODE3));
@@ -116,15 +105,6 @@ void setup() {
   Serial.print("   ");
   Serial.println(laller[2], BIN);
 
-  SPI.beginTransaction(SPISettings(DSO32_SPI_SPEED, MSBFIRST, SPI_MODE3));
-  digitalWrite(DSO32_CS, LOW);
-  byte buffero[2] = {DSO32_REG_WHO_AM_I | 0b10000000};
-  SPI.transfer(buffero, 2);
-  digitalWrite(DSO32_CS, HIGH);
-  SPI.endTransaction();
-  Serial.print("whoAmI: ");
-  Serial.println(buffero[1], BIN);
-  
   BaroSetup();
   
   //attachInterrupt
@@ -171,6 +151,13 @@ void loop() {
  * FUNZIONI PER LA IMU
  */
 void ImuSetup(){
+  SPI.beginTransaction(SPISettings(DSO32_SPI_SPEED, MSBFIRST, SPI_MODE3));
+  digitalWrite(DSO32_CS, LOW);
+  byte buffero[2] = {DSO32_REG_WHO_AM_I | 0b10000000};
+  SPI.transfer(buffero, 2);
+  digitalWrite(DSO32_CS, HIGH);
+  SPI.endTransaction();
+  delayMicroseconds(500);
   SPI.beginTransaction(SPISettings(DSO32_SPI_SPEED, MSBFIRST, SPI_MODE3));
   digitalWrite(DSO32_CS, LOW);
   //pin interrupt sensore
