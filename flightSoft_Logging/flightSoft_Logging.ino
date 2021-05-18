@@ -15,8 +15,8 @@
 #define DSO32_INT_GYRO 40
 #define DSO32_INT_ACC 41
 #define BMP388_INT 20
-#define DSO32_SPI_SPEED 1000000
-#define BMP388_SPI_SPEED 1000000
+#define DSO32_SPI_SPEED 10000000
+#define BMP388_SPI_SPEED 10000000
 
 #define DSO32_REG_INT1_CTRL 0x0D
 #define DSO32_REG_INT2_CTRL 0x0E
@@ -102,12 +102,9 @@ void setup() {
   pinMode(DSO32_INT_ACC, INPUT);
   pinMode(BMP388_CS, OUTPUT);
   pinMode(BMP388_INT, INPUT);
+  digitalWrite(DSO32_CS, HIGH);
+  digitalWrite(BMP388_CS, HIGH);
 
-  //attachInterrupt
-  attachInterrupt(digitalPinToInterrupt(DSO32_INT_ACC),IntA,RISING);
-  attachInterrupt(digitalPinToInterrupt(DSO32_INT_GYRO),IntG,RISING);
-  attachInterrupt(digitalPinToInterrupt(BMP388_INT),IntB,RISING);
-  //disattivo gli interrupt per evitare problemi durante l'inizializzazione
   
 /*
   sd.begin(SD_CONFIG);
@@ -134,7 +131,7 @@ void setup() {
   }
   // initialize the RingBuf.
   rb.begin(&file);
-  //noInterrupts();
+  
   SPI.begin();
 
   ImuSetup();
@@ -153,7 +150,10 @@ void setup() {
   //riattivo gli interrupt
   //interrupts();
 
-  
+  //attachInterrupt
+  attachInterrupt(digitalPinToInterrupt(DSO32_INT_ACC),IntA,RISING);
+  attachInterrupt(digitalPinToInterrupt(DSO32_INT_GYRO),IntG,RISING);
+  attachInterrupt(digitalPinToInterrupt(BMP388_INT),IntB,RISING);
 
   prevMillis = millis();
 }
@@ -212,6 +212,13 @@ void loop() {
 void ImuSetup(){
   SPI.beginTransaction(SPISettings(DSO32_SPI_SPEED, MSBFIRST, SPI_MODE3));
   digitalWrite(DSO32_CS, LOW);
+  byte buffero[2] = {DSO32_REG_WHO_AM_I | 0b10000000};
+  SPI.transfer(buffero, 2);
+  digitalWrite(DSO32_CS, HIGH);
+  SPI.endTransaction();
+  delayMicroseconds(500);
+  SPI.beginTransaction(SPISettings(DSO32_SPI_SPEED, MSBFIRST, SPI_MODE3));
+  digitalWrite(DSO32_CS, LOW);
   //pin interrupt sensore
   byte intBuff[3] = {DSO32_REG_INT1_CTRL, 0x02, 0x01}; //indirizzo int1, valore int1 gyro, valore int2 acc
   SPI.transfer(intBuff, 3);
@@ -268,12 +275,10 @@ void ImuGetAcc(){
 
 void IntG(){
   readyGyro = 1;
-  Serial.println("G");
 }
 
 void IntA(){
   readyAcc = 1;
-  Serial.println("A");
 }
 
 /***********************************************************************************************
@@ -412,11 +417,11 @@ void logga(){
     gyroReadNotLogged = 0;
     accReadNotLogged = 0;
     rb.print(micros());
-    rb.write(',');
+    rb.print(" , ");
     rb.print(accX);
-    rb.write(',');
+    rb.print(" , ");
     rb.print(accY);
-    rb.write(',');
+    rb.print(" , ");
     rb.println(accZ);
   }
   
