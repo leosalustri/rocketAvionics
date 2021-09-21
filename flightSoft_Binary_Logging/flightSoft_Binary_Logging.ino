@@ -5,7 +5,7 @@
 #define SD_CONFIG  SdioConfig(FIFO_SDIO)  // Use Teensy SDIO
 #define LOG_FILE_SIZE 10*25000*600  // Size to log 10 byte lines at 25 kHz for more than ten minutes.
 #define RING_BUF_CAPACITY 400*512 // Space to hold more than 800 ms of data for 10 byte lines at 25 ksps.
-#define LOG_FILENAME "AccelerometerLog.csv"
+#define LOG_FILENAME "FlightLog.dat"
 
 #define DSO32_CS 10
 #define BMP388_CS 19
@@ -91,6 +91,21 @@ struct BMP388_calib_data{
     double par_p11;
     double t_lin;
 } calData;
+
+struct telemetryData{               //struct che tiene tutti i dati che devono essere salvati e/o trasmessi
+  uint16_t packetCount;
+  byte softwareState;
+  uint32_t missionTime;
+  float accX;
+  float accY;
+  float accZ;
+  float gyroX;
+  float gyroY;
+  float gyroZ;
+  float pressure;
+  float temperature;
+  float battVoltage;
+}telem;
 
 void setup() {
   Serial.begin(512000);
@@ -253,6 +268,10 @@ void ImuGetGyro(){
   gyroX = rawGyroX * dso32BitToRadSec;
   gyroY = rawGyroY * dso32BitToRadSec;
   gyroZ = rawGyroZ * dso32BitToRadSec;
+
+  telem.gyroX = gyroX;
+  telem.gyroY = gyroY;
+  telem.gyroZ = gyroZ;
 }
 
 void ImuGetAcc(){
@@ -271,6 +290,10 @@ void ImuGetAcc(){
   accX = rawAccX * dso32BitToMss;
   accY = rawAccY * dso32BitToMss;
   accZ = rawAccZ * dso32BitToMss;
+
+  telem.accX = accX;
+  telem.accY = accY;
+  telem.accZ = accZ;
 }
 
 void IntG(){
@@ -407,7 +430,7 @@ void logga(){
   size_t n = rb.bytesUsed();
   if ((n + file.curPosition()) > (LOG_FILE_SIZE - 20) || endLog) { //sostituire a 20 valore sensato
     //Serial.println("File full - quiting.");
-    rb.print("fineEEE");
+    //rb.print("fineEEE");
     rb.sync();
     file.truncate();
     file.rewind();
@@ -416,6 +439,7 @@ void logga(){
   if(gyroReadNotLogged && accReadNotLogged && logging){
     gyroReadNotLogged = 0;
     accReadNotLogged = 0;
+    /*
     rb.print(micros());
     rb.print(" , ");
     rb.print(accX);
@@ -423,6 +447,8 @@ void logga(){
     rb.print(accY);
     rb.print(" , ");
     rb.println(accZ);
+    */
+    rb.write(&telem, sizeof(telem));
   }
   
   if (n >= 512 && !file.isBusy()) {
