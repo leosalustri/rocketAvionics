@@ -62,6 +62,7 @@ void setup() {
 
   pinMode(BMP388_CS, OUTPUT);
   pinMode(BMP388_INT, INPUT);
+  digitalWrite(BMP388_CS, HIGH);
 
   //attachInterrupt
   attachInterrupt(digitalPinToInterrupt(BMP388_INT),IntB,RISING);

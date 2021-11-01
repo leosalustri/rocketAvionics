@@ -58,6 +58,7 @@ void setup() {
   pinMode(DSO32_CS, OUTPUT);
   pinMode(DSO32_INT_GYRO, INPUT);
   pinMode(DSO32_INT_ACC, INPUT);
+  digitalWrite(DSO32_CS, HIGH);
 
   //attachInterrupt
   attachInterrupt(digitalPinToInterrupt(DSO32_INT_ACC),IntA,RISING);
@@ -125,7 +126,7 @@ void loop() {
   }
 
   if(millis() - prevMillis >= 500){
-
+    prevMillis = millis();
     //logga roba
     //ImuGetAcc();
     Serial.println(String(accX, 6) + " " + String(accY, 6) + " " + String(accZ, 6));

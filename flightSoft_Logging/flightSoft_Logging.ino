@@ -1,4 +1,11 @@
 #include <SPI.h>
+#include "SdFat.h"
+#include "RingBuf.h"
+
+#define SD_CONFIG  SdioConfig(FIFO_SDIO)  // Use Teensy SDIO
+#define LOG_FILE_SIZE 10*25000*600  // Size to log 10 byte lines at 25 kHz for more than ten minutes.
+#define RING_BUF_CAPACITY 400*512 // Space to hold more than 800 ms of data for 10 byte lines at 25 ksps.
+#define LOG_FILENAME "AccelerometerLog.csv"
 
 #define DSO32_CS 10
 #define BMP388_CS 19
@@ -8,8 +15,8 @@
 #define DSO32_INT_GYRO 40
 #define DSO32_INT_ACC 41
 #define BMP388_INT 20
-#define DSO32_SPI_SPEED 1000000
-#define BMP388_SPI_SPEED 1000000
+#define DSO32_SPI_SPEED 10000000
+#define BMP388_SPI_SPEED 10000000
 
 #define DSO32_REG_INT1_CTRL 0x0D
 #define DSO32_REG_INT2_CTRL 0x0E
@@ -37,6 +44,10 @@
 #define BMP388_REG_ODR 0x1D  //00000001  100Hz
 #define BMP388_REG_CONFIG 0x1F  //00000010 iir filter coeff 1
 
+SdFs sd;
+FsFile file;
+RingBuf<FsFile, RING_BUF_CAPACITY> rb;  // RingBuf for File type FsFile.
+
 //booleani di appoggio
 volatile bool readyGyro = 0;
 volatile bool readyAcc = 0;
@@ -58,6 +69,10 @@ float seaLevelPressure = 101325; // in Pa
 //variabili per il timing
 
 unsigned long prevMillis = 0;
+bool endLog = 0;
+bool logging = 0;
+bool gyroReadNotLogged = 0;
+bool accReadNotLogged = 0;
 
 struct BMP388_calib_data{
     double par_t1;
@@ -89,14 +104,42 @@ void setup() {
   pinMode(BMP388_INT, INPUT);
   digitalWrite(DSO32_CS, HIGH);
   digitalWrite(BMP388_CS, HIGH);
- 
+
+  
+/*
+  sd.begin(SD_CONFIG);
+  file.open(LOG_FILENAME, O_RDWR | O_CREAT | O_TRUNC);
+  file.preAllocate(LOG_FILE_SIZE);
+  rb.begin(&file);
+ */
+ // Initialize the SD.
+  if (!sd.begin(SD_CONFIG)) {
+    Serial.println("beccato");
+    sd.initErrorHalt(&Serial);
+  }
+  // Open or create file - truncate existing file.
+  if (!file.open(LOG_FILENAME, O_RDWR | O_CREAT | O_TRUNC)) {
+    Serial.println("open failed\n");
+    return;
+  }
+  // File must be pre-allocated to avoid huge
+  // delays searching for free clusters.
+  if (!file.preAllocate(LOG_FILE_SIZE)) {
+     Serial.println("preAllocate failed\n");
+     file.close();
+     return;
+  }
+  // initialize the RingBuf.
+  rb.begin(&file);
+  
   SPI.begin();
-  
+
   ImuSetup();
-  
+  BaroSetup();
+
   SPI.beginTransaction(SPISettings(DSO32_SPI_SPEED, MSBFIRST, SPI_MODE3));
   digitalWrite(DSO32_CS, LOW);
-  uint8_t laller[3] = {DSO32_REG_INT1_CTRL | 0b10000000, 0xA2, 0xA1};
+  uint8_t laller[3] = {DSO32_REG_INT1_CTRL | 0b10000000, 0x02, 0x01};
   SPI.transfer(laller, 3);
   digitalWrite(DSO32_CS, HIGH);
   SPI.endTransaction();
@@ -104,9 +147,9 @@ void setup() {
   Serial.print(laller[1], BIN);
   Serial.print("   ");
   Serial.println(laller[2], BIN);
+  //riattivo gli interrupt
+  //interrupts();
 
-  BaroSetup();
-  
   //attachInterrupt
   attachInterrupt(digitalPinToInterrupt(DSO32_INT_ACC),IntA,RISING);
   attachInterrupt(digitalPinToInterrupt(DSO32_INT_GYRO),IntG,RISING);
@@ -119,22 +162,38 @@ void loop() {
   if(readyGyro){
     readyGyro = 0;
     ImuGetGyro();
+    gyroReadNotLogged = 1;
   }
   if(readyAcc){
     readyAcc = 0;
     ImuGetAcc();
+    accReadNotLogged = 1;
   }
   if(readyBaro){
     readyBaro = 0;
     BaroGetPress();
     BaroGetTemp();
   }
+  logga();
 
   if(millis() - prevMillis >= 500){
     prevMillis = millis();
     //fai cose
-    Serial.println(String(accX, 6) + " " + String(accY, 6) + " " + String(accZ, 6) + " " + String(temp, 2) + " " + String(pressure, 2));
-    //Serial.println(String(rawAccX) + " " + String(rawAccY) + " " + String(rawAccZ) + " " + String(temp, 2) + " " + String(pressure, 2));
+    if(logging){
+      Serial.println("sto loggando");
+      Serial.println(accZ);
+    }
+    else{
+      Serial.println("ho finito");
+    }
+  }
+  
+  if(millis() > 30000){
+    logging = 0;
+    endLog = 1;
+  }
+  else if (millis() > 3000){
+    logging = 1;
   }
 }
 
@@ -175,6 +234,7 @@ void ImuSetup(){
   SPI.transfer(dRBuff, 2);
   digitalWrite(DSO32_CS, HIGH);
   SPI.endTransaction();
+  //Serial.println("imu settata");
 }
 
 void ImuGetGyro(){
@@ -337,4 +397,37 @@ static float BMP388_compensate_pressure(uint32_t uncomp_press, struct BMP388_cal
 
 void IntB(){
   readyBaro = 1;
+}
+
+/***********************************************************************************************
+ * FUNZIONI PER IL LOGGING SU SD
+ */
+
+void logga(){
+  size_t n = rb.bytesUsed();
+  if ((n + file.curPosition()) > (LOG_FILE_SIZE - 20) || endLog) { //sostituire a 20 valore sensato
+    //Serial.println("File full - quiting.");
+    rb.print("fineEEE");
+    rb.sync();
+    file.truncate();
+    file.rewind();
+    file.close();
+   }
+  if(gyroReadNotLogged && accReadNotLogged && logging){
+    gyroReadNotLogged = 0;
+    accReadNotLogged = 0;
+    rb.print(micros());
+    rb.print(" , ");
+    rb.print(accX);
+    rb.print(" , ");
+    rb.print(accY);
+    rb.print(" , ");
+    rb.println(accZ);
+  }
+  
+  if (n >= 512 && !file.isBusy()) {
+    // Not busy only allows one sector before possible busy wait.
+    // Write one sector from RingBuf to file.
+    rb.writeOut(512);
+  }
 }
